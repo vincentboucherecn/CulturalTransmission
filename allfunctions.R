@@ -254,13 +254,13 @@ jlik <- function(theta){
   }
   
   likt <- function(lbda) liksar(lbda,theta) # creates a function of lambda
-  llist <<- seq(from=(-hld+1e-8), to=(hld-1e-8), by=0.01)
-  flist <<- sapply(llist, likt)
-  #ls <- optim(0,likt,method="Brent",lower=(-hld+1e-8),upper=(hld-1e-8)) # optimize SAR likelihood
-  #lambdaest <<- ls$par ## save lambda as global variable
-  lambdaest <<- llist[which.min(flist)] ## save lambda as global variable
-  #return(-objproba(theta)+ls$value) # obj function will be minimized
-  return(-objproba(theta)+min(flist)) # obj function will be minimized
+#  llist <<- seq(from=(-hld+1e-8), to=(hld-1e-8), by=0.01)
+#  flist <<- sapply(llist, likt)
+  ls <- optim(0,likt,method="Brent",lower=(-hld+1e-8),upper=(hld-1e-8)) # optimize SAR likelihood
+  lambdaest <<- ls$par ## save lambda as global variable
+  #lambdaest <<- llist[which.min(flist)] ## save lambda as global variable
+  return(-objproba(theta)+ls$value) # obj function will be minimized
+  #return(-objproba(theta)+min(flist)) # obj function will be minimized
 }
 
 jlikhes <- function(longtheta){
