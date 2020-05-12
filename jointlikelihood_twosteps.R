@@ -21,8 +21,11 @@
   S <- outbiglist[[4]]
   G <- outbiglist[[5]]
   rm(outbiglist)
-  
-  outdta$dist <- outdta$dist/max(outdta$dist) # rescale distance 
+  md <- max(outdta$dist)
+  outdta$dist <- outdta$dist/md # rescale distance
+  for (i in 1:length(X)){
+    D[[i]][[8]] <- D[[i]][[8]]/md
+  }
   outdta <- outdta[outdta$self==0,] # remove self links
   outdta$self <- NULL # remove "self" variable
   N <- nrow(outdta) # number of pairs
