@@ -161,7 +161,7 @@ gradlik <- function(theta){
   rhop <- dnorm(rho)
   rho <- pnorm(rho)
   proba <- outdta[,"social"]*rho
-  mbeta <- ((outdta[,"g"]-proba)/(1-proba))*rhop/rho
+  mbeta <- ((outdta[,"g"]-proba)/(proba*(1-proba)))*rhop/rho
   outgrad <- matrix(NA,N,length(theta))
   for (i in 1:10){
     outgrad[,i] <- mbeta*outdta[,(i+1)]
