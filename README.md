@@ -2,7 +2,7 @@
 
 ## Files:
 
-+ *allfunction.R*: It's an R script collecting all of the functions invoked by the other scripts. This script does not have to be launch manually. It is launched by the other scripts.
++ *allfunction.R*: It's an R script collecting all of the functions called by the other scripts. This script does not have to be launch manually. It is launched by the other scripts.
 
 + *import.do*: This do-file has to be lauched FIRST. It keeps the relevant variables from the original datasets and merges them in a single file.
 
