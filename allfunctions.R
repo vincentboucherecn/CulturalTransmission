@@ -31,7 +31,7 @@ buildprobadta <- function(){
   dtaProba$h1rm4 <- NULL
   dtaProba[dtaProba$h1rm5>1,"h1rm5"] <- 0
   colnames(dtaProba)[which(colnames(dtaProba)=="h1rm5")] <- "momworks"
-  dtaProba$type <- as.numeric(dtaProba$h1rf1>=8 | dtaProba$h1rm1>=8) # type 1 if either parent is college educated
+  dtaProba$type <- as.numeric((dtaProba$h1rf1>=8 & dtaProba$h1rf1<=9) | (dtaProba$h1rm1>=8 & dtaProba$h1rm1<=9 ) ) # type 1 if either parent is college educated
   dtaProba$h1rf1 <- NULL
   dtaProba$h1rm1 <- NULL
   
@@ -333,7 +333,7 @@ builddta <- function(){
   colnames(dtaProba)[which(colnames(dtaProba)=="h1gi6d")] <- "asian"
   dtaProba$h1gi6e <- NULL
   dtaProba$h1gi20 <- NULL
-  dtaProba$type <- as.numeric(dtaProba$h1rf1>=8 | dtaProba$h1rm1>=8) # type 1 if either parent is college educated
+  dtaProba$type <- as.numeric((dtaProba$h1rf1>=8 & dtaProba$h1rf1<=9) | (dtaProba$h1rm1>=8 & dtaProba$h1rm1<=9 ) ) # type 1 if either parent is college educated
   
   ## parent educational effort
   ## decisions
