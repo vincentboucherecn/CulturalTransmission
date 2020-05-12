@@ -9,7 +9,7 @@
   source("allfunctions.R")
   
   ################
-  ### RUN CODE
+  ### LOAD DATA
   ################
   
   
@@ -36,6 +36,11 @@
     schdummy[,i] <- as.numeric(outdta$school==i)
   }
   
+  ################
+  ### RUN ESTIMATIONS
+  ################
+  
+  
   ## factor variable for LPM startup
   outdta$school.f <- factor(outdta$school)
   
@@ -59,7 +64,7 @@
   VC <- solve(-VV) # variance-covariance matrix
     
 rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
-save.image("outestim_partial.RData") # save estimation results
+save.image("outestim_partial2.RData") # save estimation results
 
 
 #### Not used

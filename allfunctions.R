@@ -132,8 +132,8 @@ buildprobadta <- function(){
     dtaset[pos:(pos+nt^2-1),"social"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)*t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
     dtaset[pos:(pos+nt^2-1),"school"] <- i
     dtaset[pos:(pos+nt^2-1),"self"] <- c(diag(nt)) # flag ==1 if self link
-    dtaset[pos:(pos+nt^2-1),"si"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)*t(matrix(1,nt,nt))) ## "social"
-    dtaset[pos:(pos+nt^2-1),"sj"] <- c(matrix(1,nt,nt)*t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
+    dtaset[pos:(pos+nt^2-1),"si"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)) ## "social"
+    dtaset[pos:(pos+nt^2-1),"sj"] <- c(t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
     pos <- pos + nt^2
   }
   return(list(dtaset,Xlist,Dlist,Slist,Glist,dtaProba))
@@ -161,7 +161,7 @@ gradlik <- function(theta){
   rhop <- dnorm(rho)
   rho <- pnorm(rho)
   proba <- outdta[,"social"]*rho
-  mbeta <- ((outdta[,"g"]-proba)/(proba*(1-proba)))*rhop/rho
+  mbeta <- ((outdta[,"g"]-proba)/(proba*(1-proba)))*outdta[,"social"]*rhop
   outgrad <- matrix(NA,N,length(theta))
   for (i in 1:10){
     outgrad[,i] <- mbeta*outdta[,(i+1)]
@@ -181,12 +181,14 @@ liksar <- function(lambda,theta){
   ## likelihood P(s), concentrated around lambda (=phi in the paper)
   thetaprob <- theta # parameters for P(G|s)
   lambda <- lambda
-  
-  ## for each school
+
+  ## initialize variables  
   P <<- list("vector",length(D))
   kx <- ncol(X[[1]]) # number of explanatory variables
   XX <- matrix(0,(kx+length(D)),(kx+length(D)))
   XMS <-  matrix(0,(kx+length(D)),1)
+
+  ## for each school
   for (i in 1:length(D)){
     
     ## build probability matrix
@@ -227,7 +229,7 @@ liksar <- function(lambda,theta){
     nn <- nn + nt
   }
   s2est <<- s2/nn # save estimated sigma2 as global variable
-  likout <- -0.5*nn*log(s2/nn)+ldetm # concentrated likelihood
+  likout <- -0.5*nn*log(s2/nn)+ldetm -0.5*nn*(log(2*pi)+1) # concentrated likelihood
   return(-likout ) # the objective function will be minimized
 }
 
@@ -254,13 +256,9 @@ jlik <- function(theta){
   }
   
   likt <- function(lbda) liksar(lbda,theta) # creates a function of lambda
-#  llist <<- seq(from=(-hld+1e-8), to=(hld-1e-8), by=0.01)
-#  flist <<- sapply(llist, likt)
   ls <- optim(0,likt,method="Brent",lower=(-hld+1e-8),upper=(hld-1e-8)) # optimize SAR likelihood
   lambdaest <<- ls$par ## save lambda as global variable
-  #lambdaest <<- llist[which.min(flist)] ## save lambda as global variable
   return(-objproba(theta)+ls$value) # obj function will be minimized
-  #return(-objproba(theta)+min(flist)) # obj function will be minimized
 }
 
 jlikhes <- function(longtheta){
@@ -301,7 +299,7 @@ jlikhes <- function(longtheta){
     liksarout <- liksarout + log(det(Mt)) - c((0.5/thetas)*t(ept)%*%ept)
     nn <- nn + nt
   }
-  liksarout <- liksarout - 0.5*nn*log(thetas) # P(s)
+  liksarout <- liksarout - 0.5*nn*log(thetas) - 0.5*nn*log(2*pi)  # P(s)
   return(likproba + liksarout)
 }
 
