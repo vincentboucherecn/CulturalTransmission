@@ -1,4 +1,9 @@
-  ############# ESTIMATE THE LINKING PROBABILITIES ###############
+################################################################
+################################################################
+################### Children's model ###########################
+################################################################
+################################################################
+
   library(maxLik)
   library(readstata13)
   library(numDeriv)
@@ -8,10 +13,9 @@
   
   source("allfunctions.R")
   
-  ################
-  ### LOAD DATA
-  ################
-  
+  ################################################################
+  ###################### Format data #############################
+  ################################################################
   
   ## get formatted data
   outbiglist <- buildprobadta()
@@ -20,6 +24,8 @@
   D <- outbiglist[[3]]
   S <- outbiglist[[4]]
   G <- outbiglist[[5]]
+  Nvec <- outbiglist[[6]]
+  sid <- outbiglist[[7]]
   rm(outbiglist)
   md <- max(outdta$dist)
   outdta$dist <- outdta$dist/md # rescale distance
@@ -28,29 +34,41 @@
   }
   outdta <- outdta[outdta$self==0,] # remove self links
   outdta$self <- NULL # remove "self" variable
-  N <- nrow(outdta) # number of pairs
   
+  outbiglist <- droppsmallgroups(10) # drop groups of less than 10 students
+  outdta <- outbiglist[[1]]
+  X <- outbiglist[[2]]
+  D <- outbiglist[[3]]
+  S <- outbiglist[[4]]
+  G <- outbiglist[[5]]
+  Nvec <- outbiglist[[6]]
+  sid <- outbiglist[[7]]
+  rm(outbiglist)
+  
+  N <- nrow(outdta) # number of pairs
   ## school dummies matrix for pairwise regression
   schdummy <- matrix(0,N,length(unique(outdta$school)))
   for (i in 1:ncol(schdummy)){
     schdummy[,i] <- as.numeric(outdta$school==i)
   }
   
-  ################
-  ### RUN ESTIMATIONS
-  ################
   
+  ################################################################
+  ####################### Estimation #############################
+  ################################################################
   
   ## factor variable for LPM startup
   outdta$school.f <- factor(outdta$school)
+  outdta$socialols <- outdta$social #/outdta$n
   
   ## initial value from LPM
-  olsout <- lm(g ~ 0 + white:social + black:social + hisp:social + asian:social + mwork:social + gender:social + age:social + dist:social + typeLH:social + typeHL:social + school.f:social,data = outdta)
+  olsout <- lm(g ~ 0 + white:socialols + black:socialols + hisp:socialols + asian:socialols + mwork:socialols + gender:socialols + age:socialols + dist:socialols +
+                 typeLH:socialols + typeHL:socialols + school.f:socialols ,data = outdta)
   
   ## initial value updated using conditional pairwise regression P(G|s)
   theta0 <- as.numeric(olsout$coefficients)
   fstry <- maxLik(logLik=objproba,grad=gradlik,start = theta0)
-  
+    
   ## Joint likelihood estimation
   fullmax <- optim(as.numeric(fstry$estimate),jlik)
   
@@ -62,24 +80,11 @@
   
   VV <- hessian(jlikhes,fulltheta) # numerical hessian
   VC <- solve(-VV) # variance-covariance matrix
-    
+  jlik(fullmax$par) ## gets optimum values for lambda and s2 (saved as global variables for the optimal parameter values)
+  
 rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
-save.image("outestim_partial2.RData") # save estimation results
+save.image("outestim_partial.RData") # save estimation results
 
 
-#### Not used
-
-#  hld <- 99 # initialize bound on lambda
-#  for (i in 1:length(D)){
-    
-#    ## build probability matrix
-#    nt <- nrow(X[[i]])
-#    Pt <- G[[i]]
-#    diag(Pt) <- 0
-#    hld <- min(hld,(1/norm(Pt,"2"))) # update bound (tighten)
-#  }
-#  ls <- optim(0,liksar_net,method="Brent",lower=(-hld+1e-8),upper=(hld-1e-8)) # optimize SAR likelihood G
-#  lic <- function(lbda) liksar(lbda,fullmax$par) # creates a function of lambda
-#  lsc <- optim(0,lic,method="Brent",lower=(-hld+1e-8),upper=(hld-1e-8)) # optimize SAR likelihood D
 
 

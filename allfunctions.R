@@ -1,13 +1,22 @@
-################
-### format the data
-################
+################################################################
+################################################################
+################### Children's model ###########################
+################################################################
+################################################################
+
+
+################################################################
+###################### Format data #############################
+################################################################
 
 buildprobadta <- function(){
   ### function to format and organize data for the joint likelihood P(G,s)
   
   ### keep only relevant variables and clean data
-  dtaProba <- dta[,c(which(colnames(dta)=="aid"):which(colnames(dta)=="h1rm5"),which(colnames(dta)=="h1rf1"),which(colnames(dta)=="h1nb1"):which(colnames(dta)=="h1nb7"),which(colnames(dta)=="s44a1"):which(colnames(dta)=="s44"))]
-  
+  dtaProba <- dta[,c(which(colnames(dta)=="aid"):which(colnames(dta)=="h1rm5"),which(colnames(dta)=="h1rf1"),which(colnames(dta)=="h1nb1"):which(colnames(dta)=="h1nb7"),
+                     which(colnames(dta)=="s44a1"):which(colnames(dta)=="s44"))]
+  dtaProba <- dtaProba[dtaProba$h1gi20<=12,] # drop individuals with no grade levels
+  dtaProba <- dtaProba[((dtaProba$scid != 1) & (dtaProba$scid != 115)),]
   ## recode/clean variables, missing values, individual characteristics
   dtaProba$female <- dtaProba$bio_sex-1 #female
   dtaProba$bio_sex <- NULL
@@ -27,7 +36,6 @@ buildprobadta <- function(){
   dtaProba[dtaProba$h1gi6d>1,"h1gi6d"] <- 0
   colnames(dtaProba)[which(colnames(dtaProba)=="h1gi6d")] <- "asian"
   dtaProba$h1gi6e <- NULL
-  dtaProba$h1gi20 <- NULL
   dtaProba$h1rm4 <- NULL
   dtaProba[dtaProba$h1rm5>1,"h1rm5"] <- 0
   colnames(dtaProba)[which(colnames(dtaProba)=="h1rm5")] <- "momworks"
@@ -44,27 +52,41 @@ buildprobadta <- function(){
   dtaProba[dtaProba$h1nb4>1,"h1nb4"] <- 0
   dtaProba$schoolact <- rowSums(dtaProba[,c(which(colnames(dtaProba)=="s44a1"):which(colnames(dtaProba)=="s44a33"))],na.rm=T) # number of activities
   
-  dtaProba$schoolact <- pmin(dtaProba$schoolact,5)/5+1
+  dtaProba$schoolact <- (pmin(dtaProba$schoolact,5)+1)/6
   dtaProba[,c(which(colnames(dtaProba)=="s44a1"):which(colnames(dtaProba)=="s44"))] <- NULL
   dtaProba$dailyact <- rowMeans(dtaProba[,c(which(colnames(dtaProba)=="h1da4"):which(colnames(dtaProba)=="h1da7"))],na.rm=T) # average daily activities
-  
   dtaProba[,c(which(colnames(dtaProba)=="h1da4"):which(colnames(dtaProba)=="h1da7"))] <- NULL
   dtaProba$neighact <- rowMeans(dtaProba[,c("h1nb1","h1nb4")],na.rm=T) # average neighbourhood participation
   dtaProba[,c(which(colnames(dtaProba)=="h1nb1"):which(colnames(dtaProba)=="h1nb7"))] <- NULL
   
   dtaProba$social <- rowMeans(dtaProba[,c("schoolact","dailyact","neighact")],na.rm=T) # socialization index
   dtaProba$social <- pmin(dtaProba$social,quantile(dtaProba$social,0.99))/quantile(dtaProba$social,0.99) # trim top 1% and normalize between 0 and 1
+  dtaProba$social <- log(dtaProba$social+1)/max(log(dtaProba$social+1)) # log scale
   dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
   
+  
   ## build data for estimation procedures
+  
+  ## recode school names to 1:nschools
+  dtaProba$scid_bkp <- dtaProba$scid
+  sl <- unique(dtaProba$scid_bkp)
+  rsl <- 1:length(sl)
+  for (i in 1:length(sl)){
+    dtaProba$scid_bkp[dtaProba$scid==sl[i]] <- rsl[i]
+  }
+  
+  ## create school-grade index
+  dtaProba$scid <- dtaProba$scid_bkp*100 + dtaProba$h1gi20
   listsch <- unique(dtaProba$scid) # list of schools
-  lM <- length(listsch) # number of schools
+  lM <- length(listsch) # number of schools/grades
   
   # initialize lists
   Dlist <- vector("list",lM)
   Xlist <- vector("list",lM)
   Slist <- vector("list",lM)
   Glist <- vector("list",lM)
+  nlist <- rep(0,lM)
+  sidlist <- rep(0,lM)
   lstfr <- c(which(colnames(dtaProba)=="mf_aid1"):which(colnames(dtaProba)=="ff_aid5")) # list of friends' id
   
   # compute total number of pairs of students (including self links, which will be removed later)
@@ -73,8 +95,8 @@ buildprobadta <- function(){
     nobs <- nobs + sum(as.numeric(dtaProba$scid==listsch[i]))^2
   }
   
-  dtaset <- as.data.frame(matrix(NA,nobs,16)) # initialize dataset of correct size for dyadic regression
-  colnames(dtaset) <- c("g","white","black","hisp","asian","mwork","gender","age","dist","typeLH","typeHL","social","school","self","si","sj")
+  dtaset <- as.data.frame(matrix(NA,nobs,17)) # initialize dataset of correct size for dyadic regression
+  colnames(dtaset) <- c("g","white","black","hisp","asian","mwork","gender","age","dist","typeLH","typeHL","social","school","self","si","sj","n")
   
   ## for each school
   pos <- 1
@@ -84,6 +106,11 @@ buildprobadta <- function(){
     ## keep only students from this school
     tdta <- dtaProba[dtaProba$scid==listsch[i],] # temporary dataset for school i
     nt <- nrow(tdta) # number of students
+    if (nt<10){
+      print("**** check n<10 ****")
+    }
+    nlist[i] <- nt
+    sidlist[i] <- tdta[1,"scid_bkp"]
     Xlist[[i]] <- as.matrix(tdta[,c("white","black","hisp","asian","momworks","female","age","type")]) # store expl var for school i
     Slist[[i]] <- matrix(tdta$social,nt,1) # store socialization efforts
     
@@ -130,16 +157,47 @@ buildprobadta <- function(){
     
     Dlist[[i]] <- tDlist # store matrices of explanatory variables
     dtaset[pos:(pos+nt^2-1),"social"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)*t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
-    dtaset[pos:(pos+nt^2-1),"school"] <- i
+    dtaset[pos:(pos+nt^2-1),"school"] <- c(matrix(rep(tdta[,"scid_bkp"],nt),nt,nt))
+    dtaset[pos:(pos+nt^2-1),"group"] <- c(matrix(rep(tdta[,"scid"],nt),nt,nt))
     dtaset[pos:(pos+nt^2-1),"self"] <- c(diag(nt)) # flag ==1 if self link
     dtaset[pos:(pos+nt^2-1),"si"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)) ## "social"
     dtaset[pos:(pos+nt^2-1),"sj"] <- c(t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
+    dtaset[pos:(pos+nt^2-1),"n"] <- nt
     pos <- pos + nt^2
   }
-  return(list(dtaset,Xlist,Dlist,Slist,Glist,dtaProba))
+  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist))
+}
+
+droppsmallgroups <- function(small){
+  
+  ## this function removes small groups
+  lM <- sum(as.numeric(Nvec>=small))
+  Dlist <- vector("list",lM)
+  Xlist <- vector("list",lM)
+  Slist <- vector("list",lM)
+  Glist <- vector("list",lM)
+  nlist <- rep(0,lM)
+  sidlist <- rep(0,lM)
+  pos <- 1
+  for (i in 1:length(D)){
+    if (Nvec[i]>=small){
+      Dlist[[pos]] <- D[[i]]
+      Xlist[[pos]] <- X[[i]]
+      Glist[[pos]] <- G[[i]]
+      Slist[[pos]] <- S[[i]]
+      nlist[[pos]] <- Nvec[[i]]
+      sidlist[[pos]] <- sid[[i]]
+      pos <- pos + 1
+    }
+  }
+  dtaset <- outdta[outdta$n>=small,]
+  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist))
 }
 
 
+################################################################
+###################### Likelihoods #############################
+################################################################
 
 ################
 ### likelihood for the pairwise regression P(G|s)
@@ -185,8 +243,8 @@ liksar <- function(lambda,theta){
   ## initialize variables  
   P <<- list("vector",length(D))
   kx <- ncol(X[[1]]) # number of explanatory variables
-  XX <- matrix(0,(kx+length(D)),(kx+length(D)))
-  XMS <-  matrix(0,(kx+length(D)),1)
+  XX <- matrix(0,(kx+ncol(schdummy)),(kx+ncol(schdummy)))
+  XMS <-  matrix(0,(kx+ncol(schdummy)),1)
 
   ## for each school
   for (i in 1:length(D)){
@@ -196,17 +254,17 @@ liksar <- function(lambda,theta){
     Pt <- matrix(0,nt,nt)
     
     ## build expected network
-    for (j in length(D[[i]])){
+    for (j in 1:length(D[[i]])){
       Pt <- Pt + thetaprob[j]*D[[i]][[j]] # add contribution of expl var j
     }
-    Pt <- pnorm(Pt + thetaprob[(length(D[[i]])+i)]) # add school dummy and compute proba
+    Pt <- pnorm(Pt + thetaprob[(length(D[[i]])+sid[i])]) # add school dummy and compute proba
     diag(Pt) <- 0
     P[[i]] <<- Pt # store proba (=d_ij in paper's notation)
     
     ## temporary matrix to compute beta
     Mt <- diag(nt)-lambda*Pt
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
+    Xt <- cbind(X[[i]],matrix(0,nt,ncol(schdummy))) # matrix of expl var, including school dummies
+    Xt[,(kx + sid[i])] <- 1 # put 1 on dummy school sid[i]
     
     XX <- XX + t(Xt) %*% Xt
     XMS <- XMS + t(Xt) %*% Mt %*% S[[i]]
@@ -219,10 +277,10 @@ liksar <- function(lambda,theta){
   for (i in 1:length(D)){
     nt <- nrow(X[[i]])
     Mt <- diag(nt)-lambda*P[[i]]
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
+    Xt <- cbind(X[[i]],matrix(0,nt,ncol(schdummy))) # matrix of expl var, including school dummies
+    Xt[,(kx + sid[i])] <- 1 # put 1 on dummy i
     
-    eet <- t(S[[i]]) %*% t(Mt) %*% Mt %*% S[[i]] - 2* t(S[[i]]) %*% t(Mt) %*% Xt %*% estbeta + t(estbeta) %*% t(Xt) %*% Xt %*% estbeta
+    eet <- t( Mt %*% S[[i]] - Xt %*% estbeta ) %*% ( Mt %*% S[[i]] - Xt %*% estbeta )
     s2 <- s2 + c(eet)
     
     ldetm <- ldetm + log(det(Mt)) 
@@ -247,10 +305,10 @@ jlik <- function(theta){
     ## build probability matrix
     nt <- nrow(X[[i]])
     Pt <- matrix(0,nt,nt)
-    for (j in length(D[[i]])){
+    for (j in 1:length(D[[i]])){
       Pt <- Pt + theta[j]*D[[i]][[j]] # add contribution of expl var j
     }
-    Pt <- pnorm(Pt + theta[(length(D[[i]])+i)]) # add school dummy and compute proba
+    Pt <- pnorm(Pt + theta[(length(D[[i]])+sid[i])]) # add school dummy and compute proba
     diag(Pt) <- 0
     hld <- min(hld,(1/norm(Pt,"2"))) # update bound (tighten)
   }
@@ -283,16 +341,16 @@ jlikhes <- function(longtheta){
     ## build probability matrix
     nt <- nrow(X[[i]])
     Pt <- matrix(0,nt,nt)
-    for (j in length(D[[i]])){
+    for (j in 1:length(D[[i]])){
       Pt <- Pt + thetaprob[j]*D[[i]][[j]] # add contribution of expl var j
     }
-    Pt <- pnorm(Pt + thetaprob[(length(D[[i]])+i)]) # add school dummy and compute proba
+    Pt <- pnorm(Pt + thetaprob[(length(D[[i]])+sid[i])])#/Nvec[i] # add school dummy and compute proba
     diag(Pt) <- 0
     P[[i]] <<- Pt
     ## temporary matrix to compute beta
     Mt <- diag(nt)-thetal*Pt
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
+    Xt <- cbind(X[[i]],matrix(0,nt,ncol(schdummy))) # matrix of expl var, including school dummies
+    Xt[,(kx + sid[i])] <- 1 # put 1 on dummy i
     ept <- Mt%*%S[[i]] - Xt%*%matrix(thetabeta,nbeta,1)
     #seq <- solve(Mt)%*%Xt%*%matrix(thetabeta,nbeta,1)
     #Peq[[i]] <<- Pt*(seq%*%t(seq))
@@ -303,20 +361,31 @@ jlikhes <- function(longtheta){
   return(likproba + liksarout)
 }
 
-################
-### Function for the parents' model
-################
+
+################################################################
+################################################################
+#################### Parents' model ############################
+################################################################
+################################################################
+
+
+################################################################
+###################### Format data #############################
+################################################################
 
 builddta <- function(){
   ##  Format data for the parents' model
   
   ### keep only relevant variables and clean data
-  dtaProba <- dta[,c(which(colnames(dta)=="aid"),which(colnames(dta)=="scid"):which(colnames(dta)=="h1gi20"),which(colnames(dta)=="h1wp1"):which(colnames(dta)=="h1wp7"),which(colnames(dta)=="h1wp10"),which(colnames(dta)=="h1wp14"),which(colnames(dta)=="h1wp17h"):which(colnames(dta)=="h1wp17j"),which(colnames(dta)=="h1wp18h"):which(colnames(dta)=="h1wp18j"),which(colnames(dta)=="h1rf1"),which(colnames(dta)=="h1rm1")  )]
+  dtaProba <- dta
   
-  ## individual variables (child)
-  dtaProba$female <- dtaProba$bio_sex-1 ## check if this is the correct coding
+  dtaProba <- dtaProba[dtaProba$h1gi20<=12,] # drop individuals with no grade levels
+  dtaProba <- dtaProba[((dtaProba$scid != 1) & (dtaProba$scid != 115)),]
+  
+  ## recode/clean variables, missing values, individual characteristics
+  dtaProba$female <- dtaProba$bio_sex-1 #female
   dtaProba$bio_sex <- NULL
-  dtaProba$age <- 95 - (dtaProba$h1gi1y+(dtaProba$h1gi1m-1)/12)
+  dtaProba$age <- 95 - (dtaProba$h1gi1y+(dtaProba$h1gi1m-1)/12) #age
   dtaProba$age <- pmin(dtaProba$age,18)
   dtaProba$age <- pmax(dtaProba$age,12)
   dtaProba$h1gi1m <- NULL
@@ -332,8 +401,34 @@ builddta <- function(){
   dtaProba[dtaProba$h1gi6d>1,"h1gi6d"] <- 0
   colnames(dtaProba)[which(colnames(dtaProba)=="h1gi6d")] <- "asian"
   dtaProba$h1gi6e <- NULL
-  dtaProba$h1gi20 <- NULL
+  dtaProba$h1rm4 <- NULL
+  dtaProba[dtaProba$h1rm5>1,"h1rm5"] <- 0
+  colnames(dtaProba)[which(colnames(dtaProba)=="h1rm5")] <- "momworks"
   dtaProba$type <- as.numeric((dtaProba$h1rf1>=8 & dtaProba$h1rf1<=9) | (dtaProba$h1rm1>=8 & dtaProba$h1rm1<=9 ) ) # type 1 if either parent is college educated
+  dtaProba$h1rf1 <- NULL
+  dtaProba$h1rm1 <- NULL
+  
+  
+  ## socialization effort
+  dtaProba[dtaProba$h1da4>3,"h1da4"] <- NA
+  dtaProba[dtaProba$h1da5>3,"h1da5"] <- NA
+  dtaProba[dtaProba$h1da6>3,"h1da6"] <- NA
+  dtaProba[dtaProba$h1da7>3,"h1da7"] <- NA
+  dtaProba[dtaProba$h1nb1>1,"h1nb1"] <- 0
+  dtaProba[dtaProba$h1nb4>1,"h1nb4"] <- 0
+  dtaProba$schoolact <- rowSums(dtaProba[,c(which(colnames(dtaProba)=="s44a1"):which(colnames(dtaProba)=="s44a33"))],na.rm=T) # number of activities
+  
+  dtaProba$schoolact <- (pmin(dtaProba$schoolact,5)+1)/6
+  dtaProba[,c(which(colnames(dtaProba)=="s44a1"):which(colnames(dtaProba)=="s44"))] <- NULL
+  dtaProba$dailyact <- rowMeans(dtaProba[,c(which(colnames(dtaProba)=="h1da4"):which(colnames(dtaProba)=="h1da7"))],na.rm=T) # average daily activities
+  dtaProba[,c(which(colnames(dtaProba)=="h1da4"):which(colnames(dtaProba)=="h1da7"))] <- NULL
+  dtaProba$neighact <- rowMeans(dtaProba[,c("h1nb1","h1nb4")],na.rm=T) # average neighbourhood participation
+  dtaProba[,c(which(colnames(dtaProba)=="h1nb1"):which(colnames(dtaProba)=="h1nb7"))] <- NULL
+  
+  dtaProba$social <- rowMeans(dtaProba[,c("schoolact","dailyact","neighact")],na.rm=T) # socialization index
+  dtaProba$social <- pmin(dtaProba$social,quantile(dtaProba$social,0.99))/quantile(dtaProba$social,0.99) # trim top 1% and normalize between 0 and 1
+  dtaProba$social <- log(dtaProba$social+1)/max(log(dtaProba$social+1)) # log scale
+  dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
   
   ## parent educational effort
   ## decisions
@@ -365,6 +460,11 @@ builddta <- function(){
   return(dtaProba)
 }
 
+
+################################################################
+####################### Simulate H #############################
+################################################################
+
 buildEhomophily <- function(gammatilde){
   
   ## simulate Eh^t conditional on gammatilde
@@ -384,86 +484,6 @@ buildEhomophily <- function(gammatilde){
     pos <- pos + nt
   }
   return(hsim)
-}
-
-
-
-
-################
-### Functions for comparisons when G is realized
-################
-
-
-liksar_net <- function(lambda){
-  ## concentrated likelihood of P(s|G) -- mispecified, for comparisons only
-  
-  ## for each school
-  kx <- ncol(X[[1]])
-  XX <- matrix(0,(kx+length(D)),(kx+length(D)))
-  XMS <-  matrix(0,(kx+length(D)),1)
-  for (i in 1:length(D)){
-    
-    ## build probability matrix
-    nt <- nrow(X[[i]])
-    Pt <- G[[i]]
-    diag(Pt) <- 0
-    
-    ## temporary matrix to compute beta
-    Mt <- diag(nt)-lambda*Pt
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
-    
-    XX <- XX + t(Xt) %*% Xt
-    XMS <- XMS + t(Xt) %*% Mt %*% S[[i]]
-    
-  }
-  estbetaexog <- solve(XX) %*% XMS # save beta as global var
-  s2 <- 0
-  ldetm <- 0
-  nn <- 0
-  for (i in 1:length(D)){
-    nt <- nrow(X[[i]])
-    Mt <- diag(nt)-lambda*G[[i]]
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
-    
-    eet <- t(S[[i]]) %*% t(Mt) %*% Mt %*% S[[i]] - 2* t(S[[i]]) %*% t(Mt) %*% Xt %*% estbeta + t(estbeta) %*% t(Xt) %*% Xt %*% estbeta
-    s2 <- s2 + c(eet)
-    
-    ldetm <- ldetm + log(det(Mt)) 
-    nn <- nn + nt
-  }
-  s2estexog <<- s2/nn # save sigma2 as global variable
-  likout <- -0.5*nn*log(s2/nn)+ldetm
-  return(-likout ) # objective function will be minimized
-}
-
-sarhes <- function(longtheta){
-  
-  ## non-concentrated likelihood for P(s|G) -- misspecified, for comparison only
-  
-  thetabeta <- longtheta[1:nbeta]
-  thetal <- longtheta[(nbeta+1)]
-  thetas <- longtheta[(nbeta+2)]
-  kx <- ncol(X[[1]])
-  nn <- 0
-  liksarout <- 0
-  for (i in 1:length(D)){
-    
-    ## build probability matrix
-    nt <- nrow(X[[i]])
-    Pt <- G[[i]]
-    diag(Pt) <- 0
-    ## temporary matrix to compute beta
-    Mt <- diag(nt)-thetal*Pt
-    Xt <- cbind(X[[i]],matrix(0,nt,length(D))) # matrix of expl var, including school dummies
-    Xt[,(kx + i)] <- 1 # put 1 on dummy i
-    ept <- Mt%*%S[[i]] - Xt%*%matrix(thetabeta,nbeta,1)
-    liksarout <- liksarout + log(det(Mt)) - c((0.5/thetas)*t(ept)%*%ept)
-    nn <- nn + nt
-  }
-  liksarout <- liksarout - 0.5*nn*log(thetas)
-  return(liksarout)
 }
 
 
