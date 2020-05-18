@@ -3,7 +3,7 @@
 #################### Parents' model ############################
 ################################################################
 ################################################################
-
+set.seed(1234)
 load("~/Dropbox/intertransmission/newcodes/grade-school/outestim_partial.RData")
 library(mvtnorm)
 library(maxLik)
@@ -61,7 +61,8 @@ source("allfunctions.R")
   ### get formatted data (parents' model)
 
   parentsdta <- builddta() # get formatted data
-  parentsdta$school <- factor(parentsdta$scid) # schools as factor var.
+  parentsdta$school <- parentsdta$scid
+  parentsdta$schoolf <- factor(parentsdta$scid) # schools as factor var.
   
   ## keep only if present in the children's data
   parentsdta$scid_bkp <- parentsdta$scid
@@ -91,8 +92,8 @@ source("allfunctions.R")
 
     obser0 <- sample(1:nrow(parentsdta0),replace=T) # bootstrap observations
     obser1 <- sample(1:nrow(parentsdta1),replace=T) # bootstrap observations
-    out0 <- lm(peffort ~ het:white + het:black + het:hisp + het:asian + het:female + het:age + hom + het:school, data=parentsdta0[obser0,]) # regression t=L
-    out1 <- lm(peffort ~ hom:white + hom:black + hom:hisp + hom:asian + hom:female + hom:age + hom + hom:school, data=parentsdta1[obser1,]) # regression t=H
+    out0 <- lm(peffort ~ hom:white + hom:black + hom:hisp + hom:asian + hom:female + hom:age + hom + hom:schoolf, data=parentsdta0[obser0,]) # regression t=L
+    out1 <- lm(peffort ~ 0 + het + het:white + het:black + het:hisp + het:asian + het:female + het:age + hom + het:schoolf, data=parentsdta1[obser1,]) # regression t=H
     result0[s,1:length(out0$coefficients)] <- out0$coefficients
     result1[s,1:length(out1$coefficients)] <- out1$coefficients
     print(s)
@@ -100,8 +101,47 @@ source("allfunctions.R")
 
   ## point estimates
   parentsdta$hom <- buildEhomophily(fulltheta) # get Eh_i^t
-  out0 <- lm(peffort ~ het:white + het:black + het:hisp + het:asian + het:female + het:age + hom + het:school, data=parentsdta0)
-  out1 <- lm(peffort ~ hom:white + hom:black + hom:hisp + hom:asian + hom:female + hom:age + hom + hom:school, data=parentsdta1)
+  parentsdta0$hom <- parentsdta[parentsdta$type==0,"hom"]
+  parentsdta1$hom <- parentsdta[parentsdta$type==1,"hom"]
+  parentsdta0$het <- 1-parentsdta0$hom
+  parentsdta1$het <- 1-parentsdta1$hom
+  out0 <- lm(peffort ~ hom:white + hom:black + hom:hisp + hom:asian + hom:female + hom:age + hom + hom:schoolf, data=parentsdta0)
+  out1 <- lm(peffort ~ 0 + het + het:white + het:black + het:hisp + het:asian + het:female + het:age + hom + het:schoolf, data=parentsdta1)
+  margin0 <- out0$coefficients["hom"] + out0$coefficients["hom:white"]*parentsdta0$white + out0$coefficients["hom:black"]*parentsdta0$black +
+    out0$coefficients["hom:hisp"]*parentsdta0$hisp + out0$coefficients["hom:asian"]*parentsdta0$asian + out0$coefficients["hom:female"]*parentsdta0$female +
+    out0$coefficients["hom:age"]*parentsdta0$age +
+    out0$coefficients["hom:schoolf3"]*as.numeric(parentsdta0$school==3) + out0$coefficients["hom:schoolf7"]*as.numeric(parentsdta0$school==7) +
+    out0$coefficients["hom:schoolf8"]*as.numeric(parentsdta0$school==8) + out0$coefficients["hom:schoolf28"]*as.numeric(parentsdta0$school==28) +
+    out0$coefficients["hom:schoolf58"]*as.numeric(parentsdta0$school==58) + out0$coefficients["hom:schoolf77"]*as.numeric(parentsdta0$school==77) +
+    out0$coefficients["hom:schoolf81"]*as.numeric(parentsdta0$school==81) + out0$coefficients["hom:schoolf88"]*as.numeric(parentsdta0$school==88) +
+    out0$coefficients["hom:schoolf106"]*as.numeric(parentsdta0$school==106) + out0$coefficients["hom:schoolf126"]*as.numeric(parentsdta0$school==126) +
+    out0$coefficients["hom:schoolf175"]*as.numeric(parentsdta0$school==175) + out0$coefficients["hom:schoolf194"]*as.numeric(parentsdta0$school==194)
+  
+  margin1 <- -out1$coefficients["het"] + out1$coefficients["hom"] - out1$coefficients["het:white"]*parentsdta1$white - out1$coefficients["het:black"]*parentsdta1$black -
+    out1$coefficients["het:hisp"]*parentsdta1$hisp - out1$coefficients["het:asian"]*parentsdta1$asian - out1$coefficients["het:female"]*parentsdta1$female -
+    out1$coefficients["het:age"]*parentsdta1$age - out1$coefficients["het:schoolf2"]*as.numeric(parentsdta1$school==2) -
+    out1$coefficients["het:schoolf3"]*as.numeric(parentsdta1$school==3) - out1$coefficients["het:schoolf7"]*as.numeric(parentsdta1$school==7) -
+    out1$coefficients["het:schoolf8"]*as.numeric(parentsdta1$school==8) - out1$coefficients["het:schoolf28"]*as.numeric(parentsdta1$school==28) -
+    out1$coefficients["het:schoolf58"]*as.numeric(parentsdta1$school==58) - out1$coefficients["het:schoolf77"]*as.numeric(parentsdta1$school==77) -
+    out1$coefficients["het:schoolf81"]*as.numeric(parentsdta1$school==81) - out1$coefficients["het:schoolf88"]*as.numeric(parentsdta1$school==88) -
+    out1$coefficients["het:schoolf106"]*as.numeric(parentsdta1$school==106) - out1$coefficients["het:schoolf126"]*as.numeric(parentsdta1$school==126) -
+    out1$coefficients["het:schoolf175"]*as.numeric(parentsdta1$school==175) - out1$coefficients["het:schoolf194"]*as.numeric(parentsdta1$school==194)
 
   rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
   save.image("outestim_final.RData") # save estimation results
+  
+  ##### graphics #####
+  
+  library(ggplot2)
+  dtaggplot <- as.data.frame(rbind(cbind(margin0,rep(0,length(margin0))), cbind(margin1,rep(1,length(margin1)))))
+  dtaggplot$V2 <- factor(dtaggplot$V2, labels=c('Lowly educated','Highly educated'))
+  theme_set(theme_minimal() + theme(legend.position = c(0.8,0.8)))
+  p <- ggplot(dtaggplot, aes(x=margin0, fill=V2)) +
+    geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
+    scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
+    scale_x_continuous(name = "Derivative of effort w.r.t. child's homophily") +
+    scale_y_continuous(name = "Number of Parents") + geom_vline(xintercept=0)
+    plot(p)
+  
+  
+  
