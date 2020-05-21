@@ -1,6 +1,7 @@
-# CulturalTransmission
+# Cultural Transmission and Socialization Spillovers in Education
+## Vincent Boucher, Carlo L. Del Bello, Fabrizio Panebianco, Thierry Verdier and Yves Zenou
 
-## Files:
+## Replication Files:
 
 + *allfunction.R*: It's an R script collecting all of the functions called by the other scripts. This script does not have to be launch manually. It is launched by the other scripts.
 
