@@ -85,6 +85,7 @@ buildprobadta <- function(){
   Xlist <- vector("list",lM)
   Slist <- vector("list",lM)
   Glist <- vector("list",lM)
+  Poslist <- vector("list",lM)
   nlist <- rep(0,lM)
   sidlist <- rep(0,lM)
   lstfr <- c(which(colnames(dtaProba)=="mf_aid1"):which(colnames(dtaProba)=="ff_aid5")) # list of friends' id
@@ -113,7 +114,7 @@ buildprobadta <- function(){
     sidlist[i] <- tdta[1,"scid_bkp"]
     Xlist[[i]] <- as.matrix(tdta[,c("white","black","hisp","asian","momworks","female","age","type")]) # store expl var for school i
     Slist[[i]] <- matrix(tdta$social,nt,1) # store socialization efforts
-    
+    Poslist[[i]] <- as.matrix(tdta[,c("x","y","h1gi20")])
     ## generate network
     Gt <- matrix(0,nt,nt)
     for (j in 1:nt){
@@ -165,7 +166,7 @@ buildprobadta <- function(){
     dtaset[pos:(pos+nt^2-1),"n"] <- nt
     pos <- pos + nt^2
   }
-  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist))
+  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist,Poslist))
 }
 
 droppsmallgroups <- function(small){
@@ -176,6 +177,7 @@ droppsmallgroups <- function(small){
   Xlist <- vector("list",lM)
   Slist <- vector("list",lM)
   Glist <- vector("list",lM)
+  Poslist <- vector("list",lM)
   nlist <- rep(0,lM)
   sidlist <- rep(0,lM)
   pos <- 1
@@ -187,11 +189,14 @@ droppsmallgroups <- function(small){
       Slist[[pos]] <- S[[i]]
       nlist[[pos]] <- Nvec[[i]]
       sidlist[[pos]] <- sid[[i]]
+      if (exists("Posdta")){
+        Poslist[[pos]] <- Posdta[[i]]
+      }
       pos <- pos + 1
     }
   }
   dtaset <- outdta[outdta$n>=small,]
-  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist))
+  return(list(dtaset,Xlist,Dlist,Slist,Glist,nlist,sidlist,Poslist))
 }
 
 

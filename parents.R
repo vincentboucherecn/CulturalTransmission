@@ -87,8 +87,10 @@ source("allfunctions.R")
   parentsdta1$hom <- parentsdta[parentsdta$type==1,"hom"]
   parentsdta0$het <- 1-parentsdta0$hom
   parentsdta1$het <- 1-parentsdta1$hom
-  out0 <- lm(peffort ~ I(hom*white) + I(hom*black) + I(hom*hisp) + I(hom*asian) + I(hom*female) + I(hom*age) + hom:schoolf, data=parentsdta0)
-  out1 <- lm(peffort ~ 0 + schoolf + I(het*white) + I(het*black) + I(het*hisp) + I(het*asian) + I(het*female) + I(het*age) + hom:schoolf, data=parentsdta1)
+  out0 <- lm(peffort ~ 0 + I(hom*white) + I(hom*black) + I(hom*hisp) + I(hom*asian) + I(hom*female) + I(hom*age) + hom:schoolf + het, data=parentsdta0)
+  out1 <- lm(peffort ~ 0 + I(het*white) + I(het*black) + I(het*hisp) + I(het*asian) + I(het*female) + I(het*age) + het:schoolf + hom, data=parentsdta1)
+  PEout0 <- out0
+  PEout1 <- out1
   margin0 <- out0$coefficients["I(hom * white)"]*parentsdta0$white + out0$coefficients["I(hom * black)"]*parentsdta0$black +
     out0$coefficients["I(hom * hisp)"]*parentsdta0$hisp + out0$coefficients["I(hom * asian)"]*parentsdta0$asian + out0$coefficients["I(hom * female)"]*parentsdta0$female +
     out0$coefficients["I(hom * age)"]*parentsdta0$age + out0$coefficients["hom:schoolf2"]*as.numeric(parentsdta0$school==2) +
@@ -98,20 +100,20 @@ source("allfunctions.R")
     out0$coefficients["hom:schoolf81"]*as.numeric(parentsdta0$school==81) + out0$coefficients["hom:schoolf88"]*as.numeric(parentsdta0$school==88) +
     out0$coefficients["hom:schoolf106"]*as.numeric(parentsdta0$school==106) + out0$coefficients["hom:schoolf126"]*as.numeric(parentsdta0$school==126) +
     out0$coefficients["hom:schoolf175"]*as.numeric(parentsdta0$school==175) + out0$coefficients["hom:schoolf194"]*as.numeric(parentsdta0$school==194) +
-    out0$coefficients["hom:schoolf369"]*as.numeric(parentsdta0$school==369)
+    out0$coefficients["hom:schoolf369"]*as.numeric(parentsdta0$school==369) - out0$coefficients["het"]
   
   margin1 <- - out1$coefficients["I(het * white)"]*parentsdta1$white - out1$coefficients["I(het * black)"]*parentsdta1$black -
     out1$coefficients["I(het * hisp)"]*parentsdta1$hisp - out1$coefficients["I(het * asian)"]*parentsdta1$asian - out1$coefficients["I(het * female)"]*parentsdta1$female -
-    out1$coefficients["I(het * age)"]*parentsdta1$age + out1$coefficients["schoolf2:hom"]*as.numeric(parentsdta1$school==2) +
-    out1$coefficients["schoolf3:hom"]*as.numeric(parentsdta1$school==3) + out1$coefficients["schoolf7:hom"]*as.numeric(parentsdta1$school==7) +
-    out1$coefficients["schoolf8:hom"]*as.numeric(parentsdta1$school==8) + out1$coefficients["schoolf28:hom"]*as.numeric(parentsdta1$school==28) +
-    out1$coefficients["schoolf58:hom"]*as.numeric(parentsdta1$school==58) + out1$coefficients["schoolf77:hom"]*as.numeric(parentsdta1$school==77) +
-    out1$coefficients["schoolf81:hom"]*as.numeric(parentsdta1$school==81) + out1$coefficients["schoolf88:hom"]*as.numeric(parentsdta1$school==88) +
-    out1$coefficients["schoolf106:hom"]*as.numeric(parentsdta1$school==106) + out1$coefficients["schoolf126:hom"]*as.numeric(parentsdta1$school==126) +
-    out1$coefficients["schoolf175:hom"]*as.numeric(parentsdta1$school==175) + out1$coefficients["schoolf194:hom"]*as.numeric(parentsdta1$school==194) +
-    out1$coefficients["schoolf369:hom"]*as.numeric(parentsdta1$school==369)
+    out1$coefficients["I(het * age)"]*parentsdta1$age - out1$coefficients["het:schoolf2"]*as.numeric(parentsdta1$school==2) -
+    out1$coefficients["het:schoolf3"]*as.numeric(parentsdta1$school==3) - out1$coefficients["het:schoolf7"]*as.numeric(parentsdta1$school==7) -
+    out1$coefficients["het:schoolf8"]*as.numeric(parentsdta1$school==8) - out1$coefficients["het:schoolf28"]*as.numeric(parentsdta1$school==28) -
+    out1$coefficients["het:schoolf58"]*as.numeric(parentsdta1$school==58) - out1$coefficients["het:schoolf77"]*as.numeric(parentsdta1$school==77) -
+    out1$coefficients["het:schoolf81"]*as.numeric(parentsdta1$school==81) - out1$coefficients["het:schoolf88"]*as.numeric(parentsdta1$school==88) -
+    out1$coefficients["het:schoolf106"]*as.numeric(parentsdta1$school==106) - out1$coefficients["het:schoolf126"]*as.numeric(parentsdta1$school==126) -
+    out1$coefficients["het:schoolf175"]*as.numeric(parentsdta1$school==175) - out1$coefficients["het:schoolf194"]*as.numeric(parentsdta1$school==194) -
+    out1$coefficients["het:schoolf369"]*as.numeric(parentsdta1$school==369) + out1$coefficients["hom"]
   
-  result0 <- result1 <- matrix(NA,bsim,23) # initialize results matrices
+  result0 <- result1 <- matrix(NA,bsim,30) # initialize results matrices
   for (s in 1:bsim){
     gammatilde <- rmvnorm(1,fulltheta,VC) # draw coefficient
     parentsdta$hom <- buildEhomophily(gammatilde) # get Eh_i^t
@@ -122,8 +124,8 @@ source("allfunctions.R")
 
     obser0 <- sample(1:nrow(parentsdta0),replace=T) # bootstrap observations
     obser1 <- sample(1:nrow(parentsdta1),replace=T) # bootstrap observations
-    out0 <- lm(peffort ~ hom:white + hom:black + hom:hisp + hom:asian + hom:female + hom:age + hom + hom:schoolf, data=parentsdta0[obser0,]) # regression t=L
-    out1 <- lm(peffort ~ 0 + het + het:white + het:black + het:hisp + het:asian + het:female + het:age + hom + het:schoolf, data=parentsdta1[obser1,]) # regression t=H
+    out0 <- lm(peffort ~ 0 + I(hom*white) + I(hom*black) + I(hom*hisp) + I(hom*asian) + I(hom*female) + I(hom*age) + hom:schoolf + het, data=parentsdta0[obser0,]) # regression t=L
+    out1 <- lm(peffort ~ 0 + I(het*white) + I(het*black) + I(het*hisp) + I(het*asian) + I(het*female) + I(het*age) + het:schoolf + hom, data=parentsdta1[obser1,]) # regression t=H
     result0[s,1:length(out0$coefficients)] <- out0$coefficients
     result1[s,1:length(out1$coefficients)] <- out1$coefficients
     print(s)
