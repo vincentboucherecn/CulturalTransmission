@@ -491,4 +491,65 @@ buildEhomophily <- function(gammatilde){
   return(hsim)
 }
 
+################################################################
+################################################################
+################## Policy simulations ##########################
+################################################################
+################################################################
 
+simulmore <- function(bplus,thetain2,thetainL,thetainH){
+  
+  # compute sample size
+  siz <- 0
+  for (i in 1:length(X)){
+    siz <- siz + nrow(X[[i]])
+  }
+  
+  #Empty database
+  collect <- as.data.frame(matrix(0,siz,8))
+  colnames(collect) <- c("id","s","h","tau","school","type","degree","peducated")
+  
+  pos <- 1 # position to fill-in
+  for (i in 1:length(X)){
+    Xt <- X[[i]] # indiv. var
+    nt <- nrow(Xt) # size of group i
+    Dt <- P[[i]] # predicted preference bias (D using the paper's notation)
+    bpt <- bplus[[i]] # policy shift
+    for (sim in 1:nsim){
+      et <- matrix(rnorm(nt,0,sqrt(s2est)),nt,1) # draw errors 
+      bt <- Xt%*%matrix(thetain2[1:ncol(Xt)],ncol(Xt),1) + et + matrix(thetain2[(ncol(Xt)+i)],nt,1) + bpt # compute bt
+      Mt <- diag(nt)-lambdaest*Dt
+      st <- solve(Mt)%*%bt # counterfactual equilibrium socialization effort
+      collect[pos:(pos+nt-1),"s"] <- collect[pos:(pos+nt-1),"s"] + st/nsim
+      Pt <- Dt * (st%*%t(st)) # counterfactual equilibrium proba
+      Pt <- pmin(pmax(Pt,0),1) # ensure all proba in 0,1 (not binding)
+      Gt <- matrix(rbinom((nt*nt),1,Pt),nt,nt) # draw network
+      sametype <- matrix(as.numeric(  matrix(rep(Xt[,8],nt),nt,nt)==t(matrix(rep(Xt[,8],nt),nt,nt)) ),nt,nt)
+      ht <- (rowSums(Gt*sametype)/pmax(1,rowSums(Gt))) # homophily index
+      collect[pos:(pos+nt-1),"h"] <- collect[pos:(pos+nt-1),"h"] + ht/nsim # fraction of same-type links
+      collect[pos:(pos+nt-1),"degree"] <- collect[pos:(pos+nt-1),"degree"] + rowSums(Gt)/nsim
+    }
+    for (sim in 1:nsim){
+      ## compute parents' counter factual equilibrium effort
+      ht <- collect[pos:(pos+nt-1),"h"] # expected h
+      tauL <- thetainL[8]*(1-ht) + thetainL[8+i]*ht + rnorm(length(ht),0,sqrt(mean(PEout0$residuals^2)))
+      tauH <- thetainH[8]*ht + thetainH[8+i]*(1-ht) + rnorm(length(ht),0,sqrt(mean(PEout1$residuals^2)))
+      for (j in 1:7){
+        tauL <- tauL + thetainL[j]*(ht*Xt[,j])
+        tauH <- tauH + thetainH[j]*((1-ht)*Xt[,j])
+      }
+      tau <- rep(NA,nt)
+      tau[c(Xt[,8]==0)] <- tauL[c(Xt[,8]==0)]
+      tau[c(Xt[,8]==1)] <- tauH[c(Xt[,8]==1)]
+      collect[pos:(pos+nt-1),"tau"] <- collect[pos:(pos+nt-1),"tau"] + tau/nsim
+      
+    }
+    collect[pos:(pos+nt-1),"type"] <- Xt[,8]
+    collect[pos:(pos+nt-1),"peducated"] <- collect[pos:(pos+nt-1),"tau"] + (1-collect[pos:(pos+nt-1),"tau"])*( collect[pos:(pos+nt-1),"h"]*collect[pos:(pos+nt-1),"type"] + (1-collect[pos:(pos+nt-1),"h"])*(1-collect[pos:(pos+nt-1),"type"]) )
+    collect[pos:(pos+nt-1),"id"] <- i
+    collect[pos:(pos+nt-1),"school"] <- sid[i]
+    
+    pos <- pos + nt
+  }
+  return(collect)
+}
