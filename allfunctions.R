@@ -515,6 +515,8 @@ simulmore <- function(bplus,thetain2,thetainL,thetainH){
     nt <- nrow(Xt) # size of group i
     Dt <- P[[i]] # predicted preference bias (D using the paper's notation)
     bpt <- bplus[[i]] # policy shift
+    hmat <- matrix(NA,nt,nsim)
+    taumat <- matrix(NA,nt,nsim)
     for (sim in 1:nsim){
       et <- matrix(rnorm(nt,0,sqrt(s2est)),nt,1) # draw errors 
       bt <- Xt%*%matrix(thetain2[1:ncol(Xt)],ncol(Xt),1) + et + matrix(thetain2[(ncol(Xt)+i)],nt,1) + bpt # compute bt
@@ -526,6 +528,7 @@ simulmore <- function(bplus,thetain2,thetainL,thetainH){
       Gt <- matrix(rbinom((nt*nt),1,Pt),nt,nt) # draw network
       sametype <- matrix(as.numeric(  matrix(rep(Xt[,8],nt),nt,nt)==t(matrix(rep(Xt[,8],nt),nt,nt)) ),nt,nt)
       ht <- (rowSums(Gt*sametype)/pmax(1,rowSums(Gt))) # homophily index
+      hmat[,sim] <- ht
       collect[pos:(pos+nt-1),"h"] <- collect[pos:(pos+nt-1),"h"] + ht/nsim # fraction of same-type links
       collect[pos:(pos+nt-1),"degree"] <- collect[pos:(pos+nt-1),"degree"] + rowSums(Gt)/nsim
     }
@@ -542,10 +545,11 @@ simulmore <- function(bplus,thetain2,thetainL,thetainH){
       tau[c(Xt[,8]==0)] <- tauL[c(Xt[,8]==0)]
       tau[c(Xt[,8]==1)] <- tauH[c(Xt[,8]==1)]
       collect[pos:(pos+nt-1),"tau"] <- collect[pos:(pos+nt-1),"tau"] + tau/nsim
-      
+      taumat[,sim] <- tau
     }
     collect[pos:(pos+nt-1),"type"] <- Xt[,8]
-    collect[pos:(pos+nt-1),"peducated"] <- collect[pos:(pos+nt-1),"tau"] + (1-collect[pos:(pos+nt-1),"tau"])*( collect[pos:(pos+nt-1),"h"]*collect[pos:(pos+nt-1),"type"] + (1-collect[pos:(pos+nt-1),"h"])*(1-collect[pos:(pos+nt-1),"type"]) )
+    tmat <- matrix(rep(Xt[,8],nsim),nt,nsim)
+    collect[pos:(pos+nt-1),"peducated"] <- rowMeans(taumat + (1-taumat)*( hmat*tmat + (1-hmat)*(1-tmat) ))
     collect[pos:(pos+nt-1),"id"] <- i
     collect[pos:(pos+nt-1),"school"] <- sid[i]
     
@@ -553,3 +557,4 @@ simulmore <- function(bplus,thetain2,thetainL,thetainH){
   }
   return(collect)
 }
+

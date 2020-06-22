@@ -1,6 +1,6 @@
 ################################################################
 ################################################################
-#################### Parents' model ############################
+####################  First Policy  ############################
 ################################################################
 ################################################################
 
@@ -90,18 +90,18 @@ parentsdta1 <- parentsdta[parentsdta$type==1,] # higly educated
 
 jlikhes(fulltheta) ## gets optimum values for lambda and s2 (saved as global variables for the optimal parameter values) and P
 
-## re-arrange new vector of parameter values
+## re-arrange new vector of parameter values (works even if some groups are dropped (this is why there's is a loop))
 
 t1 <- fulltheta[1:10]
 t2 <- fulltheta[25:32]
-tL <- as.numeric(out0$coefficients[1:8])
-tH <- as.numeric(out1$coefficients[1:8])
+tL <- as.numeric(PEout0$coefficients[1:8])
+tH <- as.numeric(PEout1$coefficients[1:8])
 tLt <- tHt <- t1t <- t2t <- rep(0,length(X))
 for (i in 1:length(X)){
   t1t[i] <- fulltheta[(10+sid[i])]
   t2t[i] <- fulltheta[(32+sid[i])]
-  tLt[i] <- as.numeric(out0$coefficients[(8+sid[i])])
-  tHt[i] <- as.numeric(out1$coefficients[(8+sid[i])])
+  tLt[i] <- as.numeric(PEout0$coefficients[(8+sid[i])])
+  tHt[i] <- as.numeric(PEout1$coefficients[(8+sid[i])])
 }
 t1 <- c(t1,t1t)
 t2 <- c(t2,t2t)
@@ -245,6 +245,56 @@ collecttot3 %>%
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+
+
+###############################################
+############# Regressions #####################
+###############################################
+
+rs1 <- lm(s ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot1)
+rh1 <- lm(h ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot1)
+red1 <- lm(peducated ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot1)
+rtau1 <- lm(tau ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot1)
+
+rs2 <- lm(s ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot3)
+rh2 <- lm(h ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot3)
+red2 <- lm(peducated ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot3)
+rtau2 <- lm(tau ~ 0 + type + I(1-type) + I(strength*type) + I(strength*(1-type)), data=collecttot3)
+
+
+###############################################
+############ Initial graphs ###################
+###############################################
+
+theme_set(theme_minimal() + theme(legend.position = c(0.8,0.8)))
+p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=s, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
+  scale_x_continuous(name = "Ex-ante simulated socialization efforts") +
+  scale_y_continuous(name = "Number of Students")
+plot(p)
+
+p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
+  scale_x_continuous(name = "Ex-ante simulated fraction of same-type links") +
+  scale_y_continuous(name = "Number of Students")
+plot(p)
+
+
+p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=tau, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
+  scale_x_continuous(name = "Ex-ante simulated education effort") +
+  scale_y_continuous(name = "Number of Parents")
+plot(p)
+
+p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
+  geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
+  scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
+  scale_x_continuous(name = "Ex-ante simulated probabilities that the student becomes educated") +
+  scale_y_continuous(name = "Number of Students")
+plot(p)
 
 
 rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
