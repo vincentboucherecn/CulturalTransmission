@@ -60,12 +60,13 @@ set.seed(1234)
   
   
   ################################################################
-  ####################### Estimation #############################
+  ###################### Model comparison ########################
   ################################################################
   
   ## initial value updated using conditional pairwise regression P(G|s)
   theta0 <- runif(25)
   fstry <- maxLik(logLik=objproba,grad=gradlik,start = theta0)
+  
     
   ## Joint likelihood estimation
   fullmax <- optim(as.numeric(fstry$estimate),jlik)
@@ -76,36 +77,17 @@ set.seed(1234)
   jlik(fullmax$par) ## gets optimum values for lambda and s2 (saved as global variables for the optimal parameter values)
   fulltheta <- c(fullmax$par,estbeta,lambdaest,s2est) # full model's parameters
   
-  grplist <- unique(outdta$group)
-  
-  VV <- hessian(jlikhes,fulltheta) # numerical hessian
-  VV <- solve(VV)
-  outerproduct <- matrix(NA,length(grplist),length(fulltheta))
-  for (grp in 1:length(grplist)){
-    lfct <- function(ltheta) jlikhes_level(ltheta,grp)
-    outerproduct[grp,] <- grad(lfct,fulltheta)
-  }
-  Outmat <- matrix(0,length(fulltheta),length(fulltheta))
-  for (grp in 1:length(grplist)){
-    Outmat <- Outmat + matrix(outerproduct[grp,],length(fulltheta),1)%*%matrix(outerproduct[grp,],1,length(fulltheta))
-  }
-  Vtheta <- VV%*%Outmat%*%VV
-  
-  stheta <- sqrt(diag(Vtheta))
-  
   jlikhes(fulltheta) ## gets optimum values for lambda and s2 (saved as global variables for the optimal parameter values) and P
-  
-  prtheta <- c(fulltheta[1:11],fulltheta[26:33],fulltheta[48:49])
-  prstheta <- c(stheta[1:11],stheta[26:33],stheta[48:49]) 
-  listvars <- c("Both White", "Both Black", "Both Hisp.", "Both Asian", "Both Mother Work", "Same Gender", "Age Difference", "Geographical distance",
-                "$d_{ij}(H,L)", "$d_{ij}(L,H)", "$d_{ij}(H,H)",
-                "White", "Back", "Hisp.", "Asian", "Mother works", "Female", "Age", "Type H", "$\\phi$", "$\\sigma^2")
-  for (i in 1:length(listvars)){
-    cat(paste(listvars[i], " & ", format(round(prtheta[i], 3), nsmall=3), " & (", format(round(prstheta[i], 3), nsmall = 3), ") \\\\ \n", sep=""))
-  }
-  
 
   
-rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
-save.image("outestim_partial.RData") # save estimation results
+  theta0 <- runif(25)
+  probtry <- maxLik(logLik=objprobit,grad=gradprobit,start = theta0)
+  
+  predict0 <- predprobit(probtry$estimate)
+  
+  efron_probit <- 1- mean((predict0$data-predict0$probit)^2)/mean((predict0$data-mean(predict0$data))^2)
+  efron_model <- 1- mean((predict0$data-predict0$model)^2)/mean((predict0$data-mean(predict0$data))^2)
+  
+  rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
+  save.image("modelcomp.RData") # save estimation results
 

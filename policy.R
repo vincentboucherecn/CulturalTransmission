@@ -5,7 +5,8 @@
 ################################################################
 
 set.seed(1234)
-load("~/Dropbox/intertransmission/newcodes/grade-school/outestim_final.RData")
+setwd("~/Dropbox/intertransmission/revisionJOLE")
+load("outestim_final_cluster.RData")
 library(mvtnorm)
 library(maxLik)
 library(readstata13)
@@ -92,14 +93,14 @@ jlikhes(fulltheta) ## gets optimum values for lambda and s2 (saved as global var
 
 ## re-arrange new vector of parameter values (works even if some groups are dropped (this is why there's is a loop))
 
-t1 <- fulltheta[1:10]
-t2 <- fulltheta[25:32]
-tL <- as.numeric(PEout0$coefficients[1:8])
-tH <- as.numeric(PEout1$coefficients[1:8])
+t1 <- fulltheta[1:11] # network para [both white.... typeH with typeH]
+t2 <- fulltheta[26:33] # socialization para [white....Type]
+tL <- as.numeric(PEout0$coefficients[1:8]) # type L parents
+tH <- as.numeric(PEout1$coefficients[1:8]) # type H parents
 tLt <- tHt <- t1t <- t2t <- rep(0,length(X))
 for (i in 1:length(X)){
-  t1t[i] <- fulltheta[(10+sid[i])]
-  t2t[i] <- fulltheta[(32+sid[i])]
+  t1t[i] <- fulltheta[(11+sid[i])]
+  t2t[i] <- fulltheta[(33+sid[i])]
   tLt[i] <- as.numeric(PEout0$coefficients[(8+sid[i])])
   tHt[i] <- as.numeric(PEout1$coefficients[(8+sid[i])])
 }
@@ -130,77 +131,86 @@ for (str in 0:10){
 collecttot$strfactor <- factor(collecttot$strength, labels=c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1"))
 
 collecttot1 <- collecttot
+pdf(file="subsidy.pdf")
+
 collecttot1 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=tau, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot1 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot1 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=s, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot1 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=degree, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot1 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
+dev.off()
+#########################################3
+############ more heterophily #############
+#########################################3
 
-#########################################3
-############### momworks=0 ###############
-#########################################3
 
 collecttot <- NULL
-sds <- sd(parentsdta$social)
+split <- (rep(fulltheta[11],2) - fulltheta[9:10])/10
 for (str in 0:10){
   print(str)
   bp <- vector("list",length(X))
   for (i in 1:length(X)){
-    bp[[i]] <- matrix((str*sds/10),nrow(X[[i]]),1)*(1-X[[i]][,5])
+    bp[[i]] <- matrix(0,nrow(X[[i]]),1) #no shift of b
   }
+  thetatmp <- fulltheta
+  thetatmp[9:10] <- fulltheta[9:10] + str*split # increase heterophily
+  jlikhes(thetatmp) ## gets optimum values for lambda and s2 (saved as global variables for the optimal parameter values) and P (preference bias!)
+  
   collectt <- simulmore(bp,t2,tL,tH)
   collectt$strength <- str
   collecttot <- rbind(collecttot,collectt)
 }
+jlikhes(fulltheta) # reset values of global variables
 collecttot$strfactor <- factor(collecttot$strength, labels=c("0","0.1","0.2","0.3","0.4","0.5","0.6","0.7","0.8","0.9","1"))
 
 collecttot2 <- collecttot
-
+pdf(file="lessHH.pdf")
 collecttot2 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=tau, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Increasing Heterophily") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot2 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Increasing Heterophily") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot2 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=s, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Increasing Heterophily") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot2 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=degree, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Increasing Heterophily") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot2 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Increasing Heterophily") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
+dev.off()
 #########################################3
 ################ type=0 #################3
 #########################################3
@@ -221,30 +231,34 @@ collecttot$strfactor <- factor(collecttot$strength, labels=c("0","0.1","0.2","0.
 
 collecttot3 <- collecttot
 
+pdf(file="subsidy0.pdf")
+
 collecttot3 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=tau, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy - low income") + ylab("Equilibrium education effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot3 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium fraction of same-type friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot3 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=s, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium socialization effort") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot3 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=degree, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Equilibrium number of friends") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
 
 collecttot3 %>% 
   dplyr::filter(type %in% c(0,1)) %>%
   ggplot(aes(x=strfactor, y=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
-  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="")
+  geom_boxplot() + theme_minimal() + xlab("Subsidy - low type") + ylab("Probability that the child becomes educated") +scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") + theme(text = element_text(size = 15))  
+
+dev.off()
 
 
 ###############################################
@@ -271,14 +285,14 @@ p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=s, fill=factor(type, la
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
   scale_x_continuous(name = "Ex-ante simulated socialization efforts") +
-  scale_y_continuous(name = "Number of Students")
+  scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
 
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
   scale_x_continuous(name = "Ex-ante simulated fraction of same-type links") +
-  scale_y_continuous(name = "Number of Students")
+  scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
 
 
@@ -286,14 +300,14 @@ p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=tau, fill=factor(type, 
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
   scale_x_continuous(name = "Ex-ante simulated education effort") +
-  scale_y_continuous(name = "Number of Parents")
+  scale_y_continuous(name = "Number of Parents") + theme(text = element_text(size = 15))  
 plot(p)
 
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
   scale_x_continuous(name = "Ex-ante simulated probabilities that the student becomes educated") +
-  scale_y_continuous(name = "Number of Students")
+  scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
 
 

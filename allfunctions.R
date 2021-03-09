@@ -62,7 +62,7 @@ buildprobadta <- function(){
   dtaProba$social <- rowMeans(dtaProba[,c("schoolact","dailyact","neighact")],na.rm=T) # socialization index
   dtaProba$social <- pmin(dtaProba$social,quantile(dtaProba$social,0.99))/quantile(dtaProba$social,0.99) # trim top 1% and normalize between 0 and 1
   dtaProba$social <- log(dtaProba$social+1)/max(log(dtaProba$social+1)) # log scale
-  dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
+  #dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
   
   
   ## build data for estimation procedures
@@ -96,8 +96,8 @@ buildprobadta <- function(){
     nobs <- nobs + sum(as.numeric(dtaProba$scid==listsch[i]))^2
   }
   
-  dtaset <- as.data.frame(matrix(NA,nobs,17)) # initialize dataset of correct size for dyadic regression
-  colnames(dtaset) <- c("g","white","black","hisp","asian","mwork","gender","age","dist","typeLH","typeHL","social","school","self","si","sj","n")
+  dtaset <- as.data.frame(matrix(NA,nobs,18)) # initialize dataset of correct size for dyadic regression
+  colnames(dtaset) <- c("g","white","black","hisp","asian","mwork","gender","age","dist","typeLH","typeHL","typeHH","social","school","self","si","sj","n")
   
   ## for each school
   pos <- 1
@@ -131,7 +131,7 @@ buildprobadta <- function(){
     Glist[[i]] <- Gt # store observed network
     print(mean(rowSums(Gt)))
     
-    tDlist <- list("vector",10) # for each explanatory variable
+    tDlist <- list("vector",11) # for each explanatory variable
     dtaset[pos:(pos+nt^2-1),"g"] <- c(Gt)
     
     tDlist[[1]] <- (matrix(rep(tdta[,"white"],nt),nt,nt)*t(matrix(rep(tdta[,"white"],nt),nt,nt))) ## i*j = 1 if i==j==1 "Both white"
@@ -155,6 +155,8 @@ buildprobadta <- function(){
     dtaset[pos:(pos+nt^2-1),"typeLH"] <- c(tDlist[[9]])
     tDlist[[10]] <- matrix(as.numeric(matrix(rep(tdta[,"type"],nt),nt,nt)==1)*as.numeric(t(matrix(rep(tdta[,"type"],nt),nt,nt))==0),nt,nt) # type HL
     dtaset[pos:(pos+nt^2-1),"typeHL"] <- c(tDlist[[10]])
+    tDlist[[11]] <- matrix(as.numeric(matrix(rep(tdta[,"type"],nt),nt,nt)==1)*as.numeric(t(matrix(rep(tdta[,"type"],nt),nt,nt))==1),nt,nt) # type HH
+    dtaset[pos:(pos+nt^2-1),"typeHH"] <- c(tDlist[[11]])
     
     Dlist[[i]] <- tDlist # store matrices of explanatory variables
     dtaset[pos:(pos+nt^2-1),"social"] <- c(matrix(rep(tdta[,"social"],nt),nt,nt)*t(matrix(rep(tdta[,"social"],nt),nt,nt))) ## "social"
@@ -211,7 +213,7 @@ droppsmallgroups <- function(small){
 objproba <- function(theta){
   ## conditional likelihood P(G|s)
   print(theta)
-  rho <- pnorm(as.matrix(outdta[,2:11])%*%matrix(theta[1:10],10,1)+schdummy%*%matrix(theta[11:(11+ncol(schdummy)-1)],ncol(schdummy),1))
+  rho <- pnorm(as.matrix(outdta[,2:12])%*%matrix(theta[1:11],11,1)+schdummy%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1))
   proba <- outdta[,"social"]*rho
   lik <- outdta[,"g"]*log(proba) + (1-outdta[,"g"])*log(1-proba)
   return(sum(lik,na.rm = T))
@@ -220,17 +222,17 @@ objproba <- function(theta){
 
 gradlik <- function(theta){
   ## gradient of the conditional likelihood P(G|s)
-  rho <- as.matrix(outdta[,2:11])%*%matrix(theta[1:10],10,1)+schdummy%*%matrix(theta[11:(11+ncol(schdummy)-1)],ncol(schdummy),1)
+  rho <- as.matrix(outdta[,2:12])%*%matrix(theta[1:11],11,1)+schdummy%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1)
   rhop <- dnorm(rho)
   rho <- pnorm(rho)
   proba <- outdta[,"social"]*rho
   mbeta <- ((outdta[,"g"]-proba)/(proba*(1-proba)))*outdta[,"social"]*rhop
   outgrad <- matrix(NA,N,length(theta))
-  for (i in 1:10){
+  for (i in 1:11){
     outgrad[,i] <- mbeta*outdta[,(i+1)]
   }
   for (i in 1:ncol(schdummy)){
-    outgrad[,(i+10)] <- mbeta*schdummy[,i]
+    outgrad[,(i+11)] <- mbeta*schdummy[,i]
   }
   return(colSums(outgrad,na.rm = T))
 }
@@ -367,6 +369,54 @@ jlikhes <- function(longtheta){
 }
 
 
+################
+### JOINT LIKELIHOOD -- restricted to single school-grade
+################
+
+objproba_level <- function(theta,lev){
+  ## conditional likelihood P(G|s)
+  print(theta)
+  flag_lev <- outdta$group==lev
+  rho <- pnorm(as.matrix(outdta[flag_lev,2:12])%*%matrix(theta[1:11],11,1)+schdummy[flag_lev,]%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1))
+  proba <- outdta[flag_lev,"social"]*rho
+  lik <- outdta[flag_lev,"g"]*log(proba) + (1-outdta[flag_lev,"g"])*log(1-proba)
+  return(sum(lik,na.rm = T))
+}
+
+jlikhes_level <- function(longtheta,levnum){
+  
+  ## joint likelihood, not concentrated. Is used for the computation of the numerical hessian
+  
+  thetaprob <- longtheta[1:nproba]
+  thetabeta <- longtheta[(nproba+1):(nproba+nbeta)]
+  thetal <- longtheta[(nproba+nbeta+1)]
+  thetas <- longtheta[(nproba+nbeta+2)]
+  
+  likproba <- objproba_level(thetaprob,grplist[levnum]) # gets P(G|s)
+  
+  ## for each school
+  kx <- ncol(X[[1]])
+  i <- levnum
+  ## build probability matrix
+  nt <- nrow(X[[i]])
+  Pt <- matrix(0,nt,nt)
+  for (j in 1:length(D[[i]])){
+    Pt <- Pt + thetaprob[j]*D[[i]][[j]] # add contribution of expl var j
+  }
+  Pt <- pnorm(Pt + thetaprob[(length(D[[i]])+sid[i])]) # add school dummy and compute proba
+  diag(Pt) <- 0
+  
+  ## temporary matrix to compute beta
+  Mt <- diag(nt)-thetal*Pt
+  Xt <- cbind(X[[i]],matrix(0,nt,ncol(schdummy))) # matrix of expl var, including school dummies
+  Xt[,(kx + sid[i])] <- 1 # put 1 on dummy i
+  ept <- Mt%*%S[[i]] - Xt%*%matrix(thetabeta,nbeta,1)
+  liksarout <- log(det(Mt)) - c((0.5/thetas)*t(ept)%*%ept)
+  liksarout <- liksarout - 0.5*nt*log(thetas) - 0.5*nt*log(2*pi)  # P(s)|lev
+  return(likproba + liksarout)
+}
+
+
 ################################################################
 ################################################################
 #################### Parents' model ############################
@@ -433,7 +483,7 @@ builddta <- function(){
   dtaProba$social <- rowMeans(dtaProba[,c("schoolact","dailyact","neighact")],na.rm=T) # socialization index
   dtaProba$social <- pmin(dtaProba$social,quantile(dtaProba$social,0.99))/quantile(dtaProba$social,0.99) # trim top 1% and normalize between 0 and 1
   dtaProba$social <- log(dtaProba$social+1)/max(log(dtaProba$social+1)) # log scale
-  dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
+  #dtaProba[,c("schoolact","dailyact","neighact")] <- NULL
   
   ## parent educational effort
   ## decisions
@@ -557,4 +607,96 @@ simulmore <- function(bplus,thetain2,thetainL,thetainH){
   }
   return(collect)
 }
+
+################################################################
+################################################################
+######################## Model Fit #############################
+################################################################
+################################################################
+
+
+buildrealh <- function(){
+  
+  hsim <- rep(0,nrow(parentsdta))
+  pos <- 1
+  for (i in 1:length(D)){
+    Pt <- P[[i]]*(S[[i]]%*%t(S[[i]]))
+    nt <- nrow(Pt)
+    types <- X[[i]][,8]
+    ## matrix = 1 if same type and 0 otherwise
+    sametype <- matrix(as.numeric(matrix(rep(types,nt),nt,nt)==t(matrix(rep(types,nt),nt,nt))),nt,nt)
+    Gt <- G[[i]] # get real network
+    hsim[pos:(pos+nt-1)] <- (rowSums(Gt*sametype)/pmax(rowSums(Gt),1))
+    pos <- pos + nt
+  }
+  return(hsim)
+}
+
+buildEhomophily_single <- function(gammatilde){
+  
+  ## simulate Eh^t conditional on gammatilde
+  jlikhes(gammatilde) # computes probabilities: P is written as a global variable
+  hsim <- rep(0,nrow(parentsdta))
+  pos <- 1
+  for (i in 1:length(D)){
+    Pt <- P[[i]]*(S[[i]]%*%t(S[[i]]))
+    nt <- nrow(Pt)
+    types <- X[[i]][,8]
+    ## matrix = 1 if same type and 0 otherwise
+    sametype <- matrix(as.numeric(matrix(rep(types,nt),nt,nt)==t(matrix(rep(types,nt),nt,nt))),nt,nt)
+    Gt <- matrix(rbinom((nt*nt),1,Pt),nt,nt) # draw random network given P
+    hsim[pos:(pos+nt-1)] <- + (rowSums(Gt*sametype)/pmax(rowSums(Gt),1))
+    pos <- pos + nt
+  }
+  return(hsim)
+}
+
+objprobit <- function(theta){
+  ## conditional likelihood P(G|s=1)
+  print(theta)
+  rho <- pnorm(as.matrix(outdta[,2:12])%*%matrix(theta[1:11],11,1)+schdummy%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1))
+  proba <- rho
+  lik <- outdta[,"g"]*log(proba) + (1-outdta[,"g"])*log(1-proba)
+  return(sum(lik,na.rm = T))
+}
+
+gradprobit <- function(theta){
+  ## gradient of the conditional likelihood P(G|s)
+  rho <- as.matrix(outdta[,2:12])%*%matrix(theta[1:11],11,1)+schdummy%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1)
+  rhop <- dnorm(rho)
+  rho <- pnorm(rho)
+  proba <- rho
+  mbeta <- ((outdta[,"g"]-proba)/(proba*(1-proba)))*rhop
+  outgrad <- matrix(NA,N,length(theta))
+  for (i in 1:11){
+    outgrad[,i] <- mbeta*outdta[,(i+1)]
+  }
+  for (i in 1:ncol(schdummy)){
+    outgrad[,(i+11)] <- mbeta*schdummy[,i]
+  }
+  return(colSums(outgrad,na.rm = T))
+}
+
+
+predprobit <- function(theta){
+  rho <- pnorm(as.matrix(outdta[,2:12])%*%matrix(theta[1:11],11,1)+schdummy%*%matrix(theta[12:(12+ncol(schdummy)-1)],ncol(schdummy),1))
+  proba <- rho
+  outint <- matrix(NA,nrow(outdta),3)
+  outint[,1] <- outdta[,"g"]
+  outint[,2] <- proba
+  pos <- 1
+  for (i in 1:length(D)){
+    Pt <- P[[i]]*(S[[i]]%*%t(S[[i]]))
+    diag(Pt) <- NA
+    lPt <- c(Pt)
+    lPt <- lPt[is.na(lPt)==F]
+    outint[pos:(pos+length(lPt)-1),3] <- lPt
+    pos <- pos + length(lPt)
+  }
+  outint <- as.data.frame(outint)
+  colnames(outint) <- c("data","probit","model")
+  return(outint)
+}
+
+
 
