@@ -13,14 +13,12 @@
 
 + *parents_clusters.R*: This Rscript has to be launched THIRD. It performs OLS estimates, with bootstrapped SE for the parents' model. It uses "outestim_partial.RData" as input. The overall results are saved in "outestim_final.RData". Produces Table 5 and Figure 2--3.
 
-+ *policy.R*: This Rscript has to be launched FOURTH. It performs counterfactual policy simulations. It uses "outestim_final.RData" and the results are saved in "total_withpolicy.RData". Produces Figures 4--6.
++ *policy.R*: This Rscript has to be launched FOURTH. It performs counterfactual policy simulations. It uses "outestim_final.RData" and the results are saved in "total_withpolicy.RData". Produces Figures 5--7.
 
 ### Robustness analysis
 
 + "additional_tables.R": Produces Figures C.1 and C.2
 
-+ "children_alt.R: Comparison with probit model. Produces Table 7.
-
-+ "modelfit.R": Homophily fit. Produces Table 6.
++ "modelfit.R": Homophily fit. Produces Figure 4 and Table C.3.
 
 + "parents_het.R": Finite mixture model. Produces Tables C.1 and C.2 
