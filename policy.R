@@ -284,14 +284,14 @@ theme_set(theme_minimal() + theme(legend.position = c(0.8,0.8)))
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=s, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
-  scale_x_continuous(name = "Ex-ante simulated socialization efforts") +
+  scale_x_continuous(name = "Socialization efforts (simulated)") +
   scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
 
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=h, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
-  scale_x_continuous(name = "Ex-ante simulated fraction of same-type links") +
+  scale_x_continuous(name = "Fraction of same-type links (simulated)") +
   scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
 
@@ -299,17 +299,16 @@ plot(p)
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=tau, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
-  scale_x_continuous(name = "Ex-ante simulated education effort") +
+  scale_x_continuous(name = "Education effort (simulated)") +
   scale_y_continuous(name = "Number of Parents") + theme(text = element_text(size = 15))  
 plot(p)
 
 p <- ggplot(collecttot1[collecttot1$strength==0,], aes(x=peducated, fill=factor(type, labels=c('Lowly educated','Highly educated')))) +
   geom_histogram( color="#e9ecef", alpha=0.6, position = 'identity',bins=20) +
   scale_fill_manual(values=c("#69b3a2", "#404080")) + labs(fill="") +
-  scale_x_continuous(name = "Ex-ante simulated probabilities that the student becomes educated") +
+  scale_x_continuous(name = "Probabilities that the student becomes educated (simulated)") +
   scale_y_continuous(name = "Number of Students") + theme(text = element_text(size = 15))  
 plot(p)
-
 
 rm(D,dta,outdta,S,schdummy,X,G,P,parentsdta,parentsdta0,parentsdta1) # remove confidential data
 save.image("total_withpolicy.RData")
