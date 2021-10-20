@@ -1,6 +1,9 @@
 # Cultural Transmission and Socialization Spillovers in Education
 ## Vincent Boucher, Carlo L. Del Bello, Fabrizio Panebianco, Thierry Verdier and Yves Zenou
 
+The data is available for a fee (and under conditions). See: https://data.cpc.unc.edu/projects/2/view
+
+
 ## Replication Files:
 
 ### Main Files
